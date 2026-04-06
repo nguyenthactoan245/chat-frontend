@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, ChangeDetectorRef, ViewChild, ElementRef 
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { AuthService } from '../auth';
+import { AuthService } from '../auth.service';
 import { ChatService, Message } from '../chat.service';
 import { SocketService } from '../socket.service';
 
@@ -19,6 +19,9 @@ export class ChatComponent implements OnInit, OnDestroy {
   currentUserId = 0;
   onlineUsers: { username: string; userId: number }[] = [];
 
+  // ← thêm: người đang được chọn để chat riêng
+  selectedUser: { username: string; userId: number } | null = null;
+
   @ViewChild('messageContainer') messageContainer!: ElementRef;
 
   constructor(
@@ -34,29 +37,33 @@ export class ChatComponent implements OnInit, OnDestroy {
     this.currentUserId = this.authService.getUserId();
 
     this.socketService.connect();
-
-    // Thông báo online sau khi kết nối
     this.chatService.notifyOnline(this.currentUsername, this.currentUserId);
 
-    // Lắng nghe danh sách online
     this.chatService.onOnlineUsers((users: { username: string; userId: number }[]) => {
       this.onlineUsers = users;
       this.cdr.detectChanges();
     });
 
-    this.chatService.onMessageHistory((msgs) => {
+    // Lắng nghe tin nhắn riêng mới
+    this.chatService.onNewPrivateMessage((msg) => {
+      // Chỉ hiện nếu đang chat với người đó
+      if (
+        this.selectedUser &&
+        (msg.username === this.selectedUser.username ||
+          msg.username === this.currentUsername)
+      ) {
+        this.messages.push(msg);
+        this.cdr.detectChanges();
+        this.scrollToBottom();
+      }
+    });
+
+    // Lắng nghe lịch sử chat riêng
+    this.chatService.onPrivateMessageHistory((msgs) => {
       this.messages = msgs;
       this.cdr.detectChanges();
       this.scrollToBottom();
     });
-
-    this.chatService.onNewMessage((msg) => {
-      this.messages.push(msg);
-      this.cdr.detectChanges();
-      this.scrollToBottom();
-    });
-
-    this.chatService.getMessageHistory();
   }
 
   ngOnDestroy() {
@@ -64,9 +71,24 @@ export class ChatComponent implements OnInit, OnDestroy {
     this.socketService.disconnect();
   }
 
+  // Click vào user để mở chat riêng
+  selectUser(user: { username: string; userId: number }) {
+    if (user.userId === this.currentUserId) return; // không chat với chính mình
+    this.selectedUser = user;
+    this.messages = [];   // xóa tin nhắn cũ trên màn hình
+
+    // Load lịch sử chat với người này
+    this.chatService.getPrivateMessages(this.currentUserId, user.userId);
+  }
+
   sendMessage() {
-    if (!this.newMessage.trim()) return;
-    this.chatService.sendMessage(this.newMessage, this.currentUserId, this.currentUsername);
+    if (!this.newMessage.trim() || !this.selectedUser) return;
+    this.chatService.sendPrivateMessage(
+      this.newMessage,
+      this.currentUserId,
+      this.currentUsername,
+      this.selectedUser.userId,
+    );
     this.newMessage = '';
   }
 

@@ -4,6 +4,7 @@ import { SocketService } from './socket.service';
 export interface Message {
   content: string;
   username: string;
+  roomId?: string;
   createdAt: Date;
 }
 
@@ -11,35 +12,37 @@ export interface Message {
 export class ChatService {
   constructor(private socketService: SocketService) {}
 
-  sendMessage(content: string, senderId: number, username: string) {
-    this.socketService.emit('sendMessage', { content, senderId, username });
-  }
-
-  getMessageHistory() {
-    this.socketService.emit('getMessages', {});
-  }
-
-  // Thông báo với server mình đang online
   notifyOnline(username: string, userId: number) {
     this.socketService.emit('userOnline', { username, userId });
   }
 
-  // Lắng nghe danh sách online
   onOnlineUsers(callback: (users: { username: string; userId: number }[]) => void) {
     this.socketService.on('onlineUsers', callback);
   }
 
-  onNewMessage(callback: (msg: Message) => void) {
-    this.socketService.on('newMessage', callback);
+  // Gửi tin nhắn riêng
+  sendPrivateMessage(content: string, senderId: number, username: string, receiverId: number) {
+    this.socketService.emit('sendPrivateMessage', { content, senderId, username, receiverId });
   }
 
-  onMessageHistory(callback: (msgs: Message[]) => void) {
-    this.socketService.on('messageHistory', callback);
+  // Lấy lịch sử chat riêng
+  getPrivateMessages(senderId: number, receiverId: number) {
+    this.socketService.emit('getPrivateMessages', { senderId, receiverId });
+  }
+
+  // Lắng nghe tin nhắn riêng mới
+  onNewPrivateMessage(callback: (msg: Message) => void) {
+    this.socketService.on('newPrivateMessage', callback);
+  }
+
+  // Lắng nghe lịch sử chat riêng
+  onPrivateMessageHistory(callback: (msgs: Message[]) => void) {
+    this.socketService.on('privateMessageHistory', callback);
   }
 
   removeListeners() {
-    this.socketService.off('newMessage');
-    this.socketService.off('messageHistory');
+    this.socketService.off('newPrivateMessage');
+    this.socketService.off('privateMessageHistory');
     this.socketService.off('onlineUsers');
   }
 }
