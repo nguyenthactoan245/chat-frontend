@@ -18,9 +18,10 @@ export class ChatComponent implements OnInit, OnDestroy {
   currentUsername = '';
   currentUserId = 0;
   onlineUsers: { username: string; userId: number }[] = [];
-
-  // ← thêm: người đang được chọn để chat riêng
   selectedUser: { username: string; userId: number } | null = null;
+
+  // ← thêm: đếm tin nhắn chưa đọc theo userId
+  unreadCount: { [userId: number]: number } = {};
 
   @ViewChild('messageContainer') messageContainer!: ElementRef;
 
@@ -44,21 +45,28 @@ export class ChatComponent implements OnInit, OnDestroy {
       this.cdr.detectChanges();
     });
 
-    // Lắng nghe tin nhắn riêng mới
-    this.chatService.onNewPrivateMessage((msg) => {
-      // Chỉ hiện nếu đang chat với người đó
-      if (
-        this.selectedUser &&
-        (msg.username === this.selectedUser.username ||
-          msg.username === this.currentUsername)
-      ) {
+    this.chatService.onNewPrivateMessage((msg: any) => {
+      const isFromSelectedUser =
+        this.selectedUser && msg.username === this.selectedUser.username;
+
+      if (isFromSelectedUser) {
+        // Đang chat với người này → hiện tin nhắn luôn
         this.messages.push(msg);
-        this.cdr.detectChanges();
         this.scrollToBottom();
+      } else if (msg.username !== this.currentUsername) {
+        // Tin từ người khác → tăng badge
+        const sender = this.onlineUsers.find(u => u.username === msg.username);
+        if (sender) {
+          this.unreadCount[sender.userId] = (this.unreadCount[sender.userId] || 0) + 1;
+          // Đổi tiêu đề tab
+          const total = this.getTotalUnread();
+          document.title = total > 0 ? `(${total}) Chat App` : 'Chat App';
+        }
       }
+
+      this.cdr.detectChanges();
     });
 
-    // Lắng nghe lịch sử chat riêng
     this.chatService.onPrivateMessageHistory((msgs) => {
       this.messages = msgs;
       this.cdr.detectChanges();
@@ -69,16 +77,25 @@ export class ChatComponent implements OnInit, OnDestroy {
   ngOnDestroy() {
     this.chatService.removeListeners();
     this.socketService.disconnect();
+    document.title = 'Chat App';
   }
 
-  // Click vào user để mở chat riêng
   selectUser(user: { username: string; userId: number }) {
-    if (user.userId === this.currentUserId) return; // không chat với chính mình
+    if (user.userId === this.currentUserId) return;
     this.selectedUser = user;
-    this.messages = [];   // xóa tin nhắn cũ trên màn hình
+    this.messages = [];
 
-    // Load lịch sử chat với người này
+    // Xóa badge khi mở chat với người đó
+    this.unreadCount[user.userId] = 0;
+    const total = this.getTotalUnread();
+    document.title = total > 0 ? `(${total}) Chat App` : 'Chat App';
+
     this.chatService.getPrivateMessages(this.currentUserId, user.userId);
+    this.cdr.detectChanges();
+  }
+
+  getTotalUnread(): number {
+    return Object.values(this.unreadCount).reduce((a, b) => a + b, 0);
   }
 
   sendMessage() {
@@ -108,6 +125,7 @@ export class ChatComponent implements OnInit, OnDestroy {
   logout() {
     this.authService.logout();
     this.socketService.disconnect();
+    document.title = 'Chat App';
     this.router.navigate(['/login']);
   }
 }
