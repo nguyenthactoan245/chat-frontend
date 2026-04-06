@@ -44,5 +44,21 @@ export class ChatService {
     this.socketService.off('newPrivateMessage');
     this.socketService.off('privateMessageHistory');
     this.socketService.off('onlineUsers');
+    this.socketService.off('newBotMessage');  // ← thêm    
+  }
+
+  // Gửi tin nhắn cho bot
+  sendBotMessage(content: string, username: string, senderId: number) {
+    this.socketService.emit('sendBotMessage', { content, username, senderId });
+  }
+
+  // Lắng nghe reply từ bot
+  onNewBotMessage(callback: (msg: any) => void) {
+    this.socketService.on('newBotMessage', callback);
+  }
+
+  // Hủy lắng nghe bot
+  removeBotListeners() {
+    this.socketService.off('newBotMessage');
   }
 }

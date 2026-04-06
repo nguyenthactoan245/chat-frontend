@@ -23,6 +23,10 @@ export class ChatComponent implements OnInit, OnDestroy {
   // ← thêm: đếm tin nhắn chưa đọc theo userId
   unreadCount: { [userId: number]: number } = {};
 
+  // ← thêm property
+  botMessages: any[] = [];
+  isBotSelected = false;
+
   @ViewChild('messageContainer') messageContainer!: ElementRef;
 
   constructor(
@@ -72,6 +76,12 @@ export class ChatComponent implements OnInit, OnDestroy {
       this.cdr.detectChanges();
       this.scrollToBottom();
     });
+
+    this.chatService.onNewBotMessage((msg) => {
+      this.botMessages.push(msg);
+      this.cdr.detectChanges();
+      this.scrollToBottom();
+    });
   }
 
   ngOnDestroy() {
@@ -83,13 +93,11 @@ export class ChatComponent implements OnInit, OnDestroy {
   selectUser(user: { username: string; userId: number }) {
     if (user.userId === this.currentUserId) return;
     this.selectedUser = user;
+    this.isBotSelected = false;   // ← thêm
     this.messages = [];
-
-    // Xóa badge khi mở chat với người đó
     this.unreadCount[user.userId] = 0;
     const total = this.getTotalUnread();
     document.title = total > 0 ? `(${total}) Chat App` : 'Chat App';
-
     this.chatService.getPrivateMessages(this.currentUserId, user.userId);
     this.cdr.detectChanges();
   }
@@ -98,16 +106,28 @@ export class ChatComponent implements OnInit, OnDestroy {
     return Object.values(this.unreadCount).reduce((a, b) => a + b, 0);
   }
 
-  sendMessage() {
-    if (!this.newMessage.trim() || !this.selectedUser) return;
-    this.chatService.sendPrivateMessage(
+sendMessage() {
+  if (!this.newMessage.trim()) return;
+
+  if (this.isBotSelected) {
+    this.chatService.sendBotMessage(
       this.newMessage,
-      this.currentUserId,
       this.currentUsername,
-      this.selectedUser.userId,
+      this.currentUserId,
     );
     this.newMessage = '';
+    return;
   }
+
+  if (!this.selectedUser) return;
+  this.chatService.sendPrivateMessage(
+    this.newMessage,
+    this.currentUserId,
+    this.currentUsername,
+    this.selectedUser.userId,
+  );
+  this.newMessage = '';
+}
 
   onKeyPress(event: KeyboardEvent) {
     if (event.key === 'Enter') this.sendMessage();
@@ -120,6 +140,13 @@ export class ChatComponent implements OnInit, OnDestroy {
           this.messageContainer.nativeElement.scrollHeight;
       }
     }, 50);
+  }
+
+  selectBot() {
+    this.selectedUser = null;
+    this.isBotSelected = true;
+    this.botMessages = [];
+    this.cdr.detectChanges();
   }
 
   logout() {
