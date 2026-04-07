@@ -40,11 +40,20 @@ export class ChatService {
     this.socketService.on('privateMessageHistory', callback);
   }
 
+  getConversations(userId: number) {
+    this.socketService.emit('getConversations', { userId });
+  }
+
+  onConversationList(callback: (convs: any[]) => void) {
+    this.socketService.on('conversationList', callback);
+  }
+
   removeListeners() {
     this.socketService.off('newPrivateMessage');
     this.socketService.off('privateMessageHistory');
     this.socketService.off('onlineUsers');
-    this.socketService.off('newBotMessage');  // ← thêm    
+    this.socketService.off('newBotMessage');
+    this.socketService.off('conversationList');
   }
 
   // Gửi tin nhắn cho bot

@@ -39,27 +39,46 @@
     <!-- Conversation list -->
     <div class="conversation-list">
 
-      <!-- Online users -->
-      <div *ngFor="let user of onlineUsers">
-        <div *ngIf="user.userId !== currentUserId"
-             class="conversation-item"
-             [class.active]="selectedUser?.userId === user.userId"
-             (click)="selectUser(user)">
-          <div class="avatar-wrapper">
-            <div class="avatar" [style.background]="getAvatarColor(user.username)">
-              {{ user.username.charAt(0).toUpperCase() }}
-            </div>
-            <div class="online-dot"></div>
+      <!-- Đoạn chat đã có -->
+      <div *ngFor="let conv of conversations"
+           class="conversation-item"
+           [class.active]="selectedUser?.userId === conv.userId"
+           (click)="selectUser({ username: conv.username, userId: conv.userId })">
+        <div class="avatar-wrapper">
+          <div class="avatar" [style.background]="getAvatarColor(conv.username)">
+            {{ conv.username.charAt(0).toUpperCase() }}
           </div>
-          <div class="conversation-info">
-            <div class="conversation-name">{{ user.username }}</div>
-            <div class="conversation-preview">Đang hoạt động</div>
+          <div *ngIf="isOnline(conv.userId)" class="online-dot"></div>
+        </div>
+        <div class="conversation-info">
+          <div class="conversation-name">{{ conv.username }}</div>
+          <div class="conversation-preview"
+               [class.preview-unread]="unreadCount[conv.userId] > 0">
+            {{ conv.isMine ? 'Bạn: ' : '' }}{{ (conv.lastMessage || '') | slice:0:35 }}{{ ((conv.lastMessage || '').length > 35) ? '...' : '' }}
           </div>
-          <div class="conversation-meta">
-            <div *ngIf="unreadCount[user.userId] > 0" class="unread-badge">
-              {{ unreadCount[user.userId] }}
-            </div>
+        </div>
+        <div class="conversation-meta">
+          <div class="conversation-time">{{ conv.lastMessageTime | date:'HH:mm' }}</div>
+          <div *ngIf="unreadCount[conv.userId] > 0" class="unread-badge">
+            {{ unreadCount[conv.userId] }}
           </div>
+        </div>
+      </div>
+
+      <!-- Online users chưa có hội thoại -->
+      <div *ngFor="let user of getOnlineUsersNotInConversations()"
+           class="conversation-item"
+           [class.active]="selectedUser?.userId === user.userId"
+           (click)="selectUser(user)">
+        <div class="avatar-wrapper">
+          <div class="avatar" [style.background]="getAvatarColor(user.username)">
+            {{ user.username.charAt(0).toUpperCase() }}
+          </div>
+          <div class="online-dot"></div>
+        </div>
+        <div class="conversation-info">
+          <div class="conversation-name">{{ user.username }}</div>
+          <div class="conversation-preview">Đang hoạt động</div>
         </div>
       </div>
 

@@ -141,6 +141,17 @@
   gap: 4px;
 }
 
+.conversation-time {
+  font-size: 12px;
+  color: #65676b;
+  white-space: nowrap;
+}
+
+.preview-unread {
+  font-weight: 700;
+  color: #050505;
+}
+
 .unread-badge {
   background: #0084ff;
   color: white;

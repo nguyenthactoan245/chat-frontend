@@ -24,9 +24,9 @@ export class ChatComponent implements OnInit, OnDestroy {
   // ← thêm: đếm tin nhắn chưa đọc theo userId
   unreadCount: { [userId: number]: number } = {};
 
-  // ← thêm property
   botMessages: any[] = [];
   isBotSelected = false;
+  conversations: { userId: number; username: string; lastMessage: string; lastMessageTime: Date; isMine: boolean }[] = [];
 
   @ViewChild('messageContainer') messageContainer!: ElementRef;
 
@@ -44,6 +44,12 @@ export class ChatComponent implements OnInit, OnDestroy {
 
     this.socketService.connect();
     this.chatService.notifyOnline(this.currentUsername, this.currentUserId);
+    this.chatService.getConversations(this.currentUserId);
+
+    this.chatService.onConversationList((convs) => {
+      this.conversations = convs;
+      this.cdr.detectChanges();
+    });
 
     this.chatService.onOnlineUsers((users: { username: string; userId: number }[]) => {
       this.onlineUsers = users;
@@ -55,20 +61,19 @@ export class ChatComponent implements OnInit, OnDestroy {
         this.selectedUser && msg.username === this.selectedUser.username;
 
       if (isFromSelectedUser) {
-        // Đang chat với người này → hiện tin nhắn luôn
         this.messages.push(msg);
         this.scrollToBottom();
       } else if (msg.username !== this.currentUsername) {
-        // Tin từ người khác → tăng badge
         const sender = this.onlineUsers.find(u => u.username === msg.username);
         if (sender) {
           this.unreadCount[sender.userId] = (this.unreadCount[sender.userId] || 0) + 1;
-          // Đổi tiêu đề tab
           const total = this.getTotalUnread();
           document.title = total > 0 ? `(${total}) Chat App` : 'Chat App';
         }
       }
 
+      // Cập nhật last message trong conversation list
+      this.updateConversationLastMessage(msg);
       this.cdr.detectChanges();
     });
 
@@ -148,6 +153,35 @@ sendMessage() {
     this.isBotSelected = true;
     this.botMessages = [];
     this.cdr.detectChanges();
+  }
+
+  isOnline(userId: number): boolean {
+    return this.onlineUsers.some(u => u.userId === userId);
+  }
+
+  getOnlineUsersNotInConversations(): { username: string; userId: number }[] {
+    return this.onlineUsers.filter(
+      u => u.userId !== this.currentUserId &&
+           !this.conversations.some(c => c.userId === u.userId)
+    );
+  }
+
+  updateConversationLastMessage(msg: any) {
+    const isMine = msg.username === this.currentUsername;
+    const otherUsername = isMine ? this.selectedUser?.username : msg.username;
+    if (!otherUsername) return;
+
+    const existing = this.conversations.find(c => c.username === otherUsername);
+    if (existing) {
+      existing.lastMessage = msg.content;
+      existing.lastMessageTime = msg.createdAt;
+      existing.isMine = isMine;
+      // Đưa lên đầu danh sách
+      this.conversations = [existing, ...this.conversations.filter(c => c.username !== otherUsername)];
+    } else {
+      // Cuộc trò chuyện mới → reload
+      this.chatService.getConversations(this.currentUserId);
+    }
   }
 
   getAvatarColor(name: string): string {
