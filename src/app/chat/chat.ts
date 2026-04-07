@@ -11,6 +11,7 @@ import { SocketService } from '../socket.service';
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './chat.html',
+  styleUrl: './chat.css',
 })
 export class ChatComponent implements OnInit, OnDestroy {
   messages: Message[] = [];
@@ -147,6 +148,13 @@ sendMessage() {
     this.isBotSelected = true;
     this.botMessages = [];
     this.cdr.detectChanges();
+  }
+
+  getAvatarColor(name: string): string {
+    const colors = ['#0084ff', '#e91e8c', '#f7630c', '#00a400', '#9c27b0', '#e53935', '#00838f'];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    return colors[Math.abs(hash) % colors.length];
   }
 
   logout() {
